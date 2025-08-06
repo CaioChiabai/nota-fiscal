@@ -53,6 +53,7 @@
             btnImportarPlanilha.TabIndex = 1;
             btnImportarPlanilha.Text = "Importar";
             btnImportarPlanilha.UseVisualStyleBackColor = true;
+            btnImportarPlanilha.Click += btnImportarPlanilha_Click;
             // 
             // lblTituloImportacao
             // 

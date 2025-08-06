@@ -14,5 +14,10 @@
             if (dialog.ShowDialog() == DialogResult.OK)
                 txtBoxCaminhoPlanilha.Text = dialog.FileName;
         }
+
+        private void btnImportarPlanilha_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }
