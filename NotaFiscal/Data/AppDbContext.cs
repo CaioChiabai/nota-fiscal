@@ -38,7 +38,6 @@ namespace NotaFiscal.Data
                     .IsUnicode(true);
 
                 entity.Property(e => e.NomeFantasia)
-                    .IsRequired()
                     .HasMaxLength(150)
                     .IsUnicode(true);
 
@@ -49,7 +48,7 @@ namespace NotaFiscal.Data
 
                 entity.Property(e => e.Telefone)
                     .IsRequired()
-                    .HasMaxLength(11)
+                    .HasMaxLength(15)
                     .IsUnicode(false);
 
                 // Índices
