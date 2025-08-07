@@ -70,7 +70,7 @@ namespace NotaFiscal.Data
                     .IsRequired()
                     .ValueGeneratedOnAdd();
 
-                entity.Property(e => e.IdCliente)
+                entity.Property(e => e.IdEndereco)
                     .IsRequired();
 
                 entity.Property(e => e.FormaPagamento)
@@ -87,15 +87,15 @@ namespace NotaFiscal.Data
                     .HasPrecision(18, 2);
 
                 // Relacionamento com Cliente
-                entity.HasOne(e => e.Cliente)
+                entity.HasOne(e => e.Endereco)
                     .WithMany(c => c.Vendas)
-                    .HasForeignKey(e => e.IdCliente)
+                    .HasForeignKey(e => e.IdEndereco)
                     .OnDelete(DeleteBehavior.Restrict)
-                    .HasConstraintName("FK_Venda_Cliente");
+                    .HasConstraintName("FK_Venda_Endereco");
 
                 // Índices
-                entity.HasIndex(e => e.IdCliente)
-                    .HasDatabaseName("IX_Venda_IdCliente");
+                entity.HasIndex(e => e.IdEndereco)
+                    .HasDatabaseName("IX_Venda_IdEndereco");
 
                 entity.HasIndex(e => e.Data)
                     .HasDatabaseName("IX_Venda_Data");
@@ -115,8 +115,7 @@ namespace NotaFiscal.Data
 
                 entity.Property(e => e.TipoEndereco)
                     .IsRequired()
-                    .HasMaxLength(50)
-                    .IsUnicode(true);
+                    .HasConversion<int>();
 
                 entity.Property(e => e.Logradouro)
                     .IsRequired()

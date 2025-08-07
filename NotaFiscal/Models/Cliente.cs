@@ -9,7 +9,6 @@
         public string Email { get; set; } = string.Empty;
         public string Telefone { get; set; } = string.Empty;
 
-        public virtual ICollection<Venda> Vendas { get; set; } = new List<Venda>();
         public virtual ICollection<Endereco> Enderecos { get; set; } = new List<Endereco>();
     }
 }
