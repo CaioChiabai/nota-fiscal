@@ -3,6 +3,7 @@ using NotaFiscal.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using NotaFiscal.Controllers;
 
 namespace NotaFiscal
 {
@@ -21,8 +22,6 @@ namespace NotaFiscal
             ConfigureServices(services);
             ServiceProvider = services.BuildServiceProvider();
 
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
             
             // Criar o banco de dados se não existir
@@ -54,6 +53,9 @@ namespace NotaFiscal
             // DbContext
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+
+            // Controllers
+            services.AddTransient<PlanilhaController>();
 
             // Forms
             services.AddTransient<FormImportador>();

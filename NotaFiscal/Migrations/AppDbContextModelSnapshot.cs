@@ -89,11 +89,8 @@ namespace NotaFiscal.Migrations
                         .IsUnicode(true)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<string>("TipoEndereco")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .IsUnicode(true)
-                        .HasColumnType("nvarchar(50)");
+                    b.Property<int>("TipoEndereco")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -120,6 +117,9 @@ namespace NotaFiscal.Migrations
                     b.Property<int>("IdCliente")
                         .HasColumnType("int");
 
+                    b.Property<int>("IdEndereco")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("ValorTotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -131,6 +131,9 @@ namespace NotaFiscal.Migrations
 
                     b.HasIndex("IdCliente")
                         .HasDatabaseName("IX_Venda_IdCliente");
+
+                    b.HasIndex("IdEndereco")
+                        .HasDatabaseName("IX_Venda_IdEndereco");
 
                     b.ToTable("Vendas");
                 });
@@ -156,13 +159,27 @@ namespace NotaFiscal.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Venda_Cliente");
 
+                    b.HasOne("NotaFiscal.Models.Endereco", "Endereco")
+                        .WithMany("Vendas")
+                        .HasForeignKey("IdEndereco")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Venda_Endereco");
+
                     b.Navigation("Cliente");
+
+                    b.Navigation("Endereco");
                 });
 
             modelBuilder.Entity("NotaFiscal.Models.Cliente", b =>
                 {
                     b.Navigation("Enderecos");
 
+                    b.Navigation("Vendas");
+                });
+
+            modelBuilder.Entity("NotaFiscal.Models.Endereco", b =>
+                {
                     b.Navigation("Vendas");
                 });
 #pragma warning restore 612, 618
