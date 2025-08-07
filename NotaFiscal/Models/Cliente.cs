@@ -10,5 +10,6 @@
         public string Telefone { get; set; } = string.Empty;
 
         public virtual ICollection<Endereco> Enderecos { get; set; } = new List<Endereco>();
+        public virtual ICollection<Venda> Vendas { get; set; } = new List<Venda>();
     }
 }

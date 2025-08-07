@@ -6,10 +6,12 @@ namespace NotaFiscal.Models
     {
         public int Id { get; set; }
         public int IdEndereco { get; set; }
+        public int IdCliente { get; set; }
         public FormaPagamento FormaPagamento { get; set; }
         public DateTime Data { get; set; }
         public decimal ValorTotal { get; set; }
 
-        public virtual Endereco Endereco { get; set; } = null!;
+        public Cliente Cliente { get; set; } = null!;
+        public Endereco Endereco { get; set; } = null!;
     }
 }
