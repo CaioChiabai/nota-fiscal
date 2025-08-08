@@ -1,4 +1,5 @@
-﻿using NotaFiscal.Models.Enums;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using NotaFiscal.Models.Enums;
 
 namespace NotaFiscal.Models
 {
@@ -8,6 +9,8 @@ namespace NotaFiscal.Models
         public int IdEndereco { get; set; }
         public int IdCliente { get; set; }
         public FormaPagamento FormaPagamento { get; set; }
+
+        [Column(TypeName = "date")]
         public DateTime Data { get; set; }
         public decimal ValorTotal { get; set; }
 
