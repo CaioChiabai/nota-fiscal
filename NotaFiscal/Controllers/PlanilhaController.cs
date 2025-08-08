@@ -20,7 +20,7 @@ namespace NotaFiscal.Controllers
         public async Task ImportarPlanilha(string caminhoDoArquivo)
         {
             // Define o contexto da licença do EPPlus
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            ExcelPackage.License.SetNonCommercialPersonal("Caio Chiabai");
             var fileInfo = new FileInfo(caminhoDoArquivo);
 
             using (var package = new ExcelPackage(fileInfo))
@@ -30,21 +30,21 @@ namespace NotaFiscal.Controllers
 
                 for (int row = 2; row <= rowCount; row++) // Começa da linha 2 para ignorar o cabeçalho
                 {
-                    var cpfCnpjLimpo = LimparNumeros(worksheet.Cells[row, 2].Value?.ToString());
+                    // 1. Procura se o cliente já existe (primeiro no rastreamento local, depois no banco)
+                    var clienteId = int.Parse(worksheet.Cells[row, 1].Value.ToString());
 
-                    if (string.IsNullOrWhiteSpace(cpfCnpjLimpo)) continue;
-
-                    // 1. Procura se o cliente já existe
-                    var cliente = await _context.Clientes
-                                                .Include(c => c.Enderecos)
-                                                .FirstOrDefaultAsync(c => c.CpfCnpj == cpfCnpjLimpo);
+                    var cliente = _context.Clientes.Local.FirstOrDefault(c => c.Id == clienteId)
+                                    ?? await _context.Clientes
+                                            .Include(c => c.Enderecos)
+                                            .FirstOrDefaultAsync(c => c.Id == clienteId);
 
                     // 2. Se não existir, cria um novo cliente
                     if (cliente == null)
                     {
                         cliente = new Cliente
                         {
-                            CpfCnpj = cpfCnpjLimpo,
+                            Id = clienteId,
+                            CpfCnpj =  LimparNumeros(worksheet.Cells[row, 2].Value?.ToString()),
                             NomeRazaoSocial = worksheet.Cells[row, 3].Value?.ToString()?.Trim(),
                             NomeFantasia = worksheet.Cells[row, 4].Value?.ToString()?.Trim(),
                             Email = worksheet.Cells[row, 5].Value?.ToString()?.Trim(),
@@ -55,6 +55,8 @@ namespace NotaFiscal.Controllers
 
                     // 3. Verifica o endereço
                     var logradouro = worksheet.Cells[row, 7].Value?.ToString()?.Trim();
+                    Endereco enderecoParaVenda = null;
+
                     if (!string.IsNullOrWhiteSpace(logradouro))
                     {
                         var enderecoExistente = cliente.Enderecos.FirstOrDefault(e => e.Logradouro.Equals(logradouro, StringComparison.OrdinalIgnoreCase));
@@ -70,17 +72,33 @@ namespace NotaFiscal.Controllers
                             // A coleção de endereços do cliente já está sendo rastreada pelo EF Core,
                             // então apenas adicionar a ela é suficiente.
                             cliente.Enderecos.Add(novoEndereco);
+                            enderecoParaVenda = novoEndereco;
+                        }
+                        else
+                        {
+                            enderecoParaVenda = enderecoExistente;
                         }
                     }
 
                     // 4. Cadastra a venda
-                    var venda = new Venda
+                    var vendaId = int.Parse(worksheet.Cells[row, 9].Value.ToString());
+                    var venda = _context.Vendas.Local.FirstOrDefault(v => v.Id == vendaId)
+                                    ?? await _context.Vendas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vendaId);
+
+                    if (venda != null)
                     {
-                        Id = int.Parse(worksheet.Cells[row, 9].Value.ToString()),
-                        Data = DateTime.Parse(worksheet.Cells[row, 10].Value.ToString()),
+                        new Exception($"Venda com ID {vendaId} já existe. Verifique a planilha.");
+                        break;
+                    }
+
+                    venda = new Venda
+                    {
+                        Id = vendaId,
+                        Data = worksheet.Cells[row, 10].GetValue<DateTime>().Date,
                         ValorTotal = decimal.Parse(worksheet.Cells[row, 11].Value.ToString()),
                         FormaPagamento = ParseFormaPagamento(worksheet.Cells[row, 12].Value.ToString()),
-                        Cliente = cliente // Associa a venda ao cliente (novo ou existente)
+                        Cliente = cliente,
+                        Endereco = enderecoParaVenda
                     };
                     _context.Vendas.Add(venda);
                 }
@@ -116,8 +134,8 @@ namespace NotaFiscal.Controllers
             {
                 case "cartao":
                     return FormaPagamento.Cartao;
-                case "cartão":
-                    return FormaPagamento.Cartao;
+                case "transferencia":
+                    return FormaPagamento.Transferencia;
                 case "pix":
                     return FormaPagamento.Pix;
                 case "boleto":
