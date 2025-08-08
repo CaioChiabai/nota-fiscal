@@ -19,7 +19,6 @@ namespace NotaFiscal.Controllers
 
         public async Task ImportarPlanilha(string caminhoDoArquivo)
         {
-            // Define o contexto da licença do EPPlus
             ExcelPackage.License.SetNonCommercialPersonal("Caio Chiabai");
             var fileInfo = new FileInfo(caminhoDoArquivo);
 
@@ -30,9 +29,10 @@ namespace NotaFiscal.Controllers
 
                 for (int row = 2; row <= rowCount; row++) // Começa da linha 2 para ignorar o cabeçalho
                 {
-                    // 1. Procura se o cliente já existe (primeiro no rastreamento local, depois no banco)
+                    
                     var clienteId = int.Parse(worksheet.Cells[row, 1].Value.ToString());
 
+                    // 1. Procura se o cliente já existe (primeiro no rastreamento local, depois no banco)
                     var cliente = _context.Clientes.Local.FirstOrDefault(c => c.Id == clienteId)
                                     ?? await _context.Clientes
                                             .Include(c => c.Enderecos)
@@ -69,8 +69,6 @@ namespace NotaFiscal.Controllers
                                 Logradouro = logradouro,
                                 Cliente = cliente
                             };
-                            // A coleção de endereços do cliente já está sendo rastreada pelo EF Core,
-                            // então apenas adicionar a ela é suficiente.
                             cliente.Enderecos.Add(novoEndereco);
                             enderecoParaVenda = novoEndereco;
                         }
