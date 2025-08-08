@@ -21,7 +21,7 @@ namespace NotaFiscal.Views
                 txtBoxCaminhoPlanilha.Text = dialog.FileName;
         }
 
-        private void btnImportarPlanilha_Click(object sender, EventArgs e)
+        private async void btnImportarPlanilha_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrWhiteSpace(txtBoxCaminhoPlanilha.Text))
             {
@@ -34,7 +34,7 @@ namespace NotaFiscal.Views
                 btnImportarPlanilha.Enabled = false;
                 btnImportarPlanilha.Text = "Importando...";
 
-                _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text);
+                await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text);
 
                 MessageBox.Show("Planilha importada com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
