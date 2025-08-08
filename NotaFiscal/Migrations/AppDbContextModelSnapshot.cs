@@ -25,10 +25,7 @@ namespace NotaFiscal.Migrations
             modelBuilder.Entity("NotaFiscal.Models.Cliente", b =>
                 {
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CpfCnpj")
                         .IsRequired()
@@ -103,13 +100,10 @@ namespace NotaFiscal.Migrations
             modelBuilder.Entity("NotaFiscal.Models.Venda", b =>
                 {
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<DateTime>("Data")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("date");
 
                     b.Property<int>("FormaPagamento")
                         .HasColumnType("int");
