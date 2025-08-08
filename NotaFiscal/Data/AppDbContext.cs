@@ -19,7 +19,7 @@ namespace NotaFiscal.Data
             modelBuilder.Entity<Cliente>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).IsRequired().ValueGeneratedOnAdd();
+                entity.Property(e => e.Id).IsRequired().ValueGeneratedNever();
                 entity.Property(e => e.CpfCnpj).IsRequired().HasMaxLength(14).IsUnicode(false);
                 entity.Property(e => e.NomeRazaoSocial).IsRequired().HasMaxLength(255).IsUnicode(true);
                 entity.Property(e => e.NomeFantasia).HasMaxLength(150).IsUnicode(true);
@@ -34,11 +34,11 @@ namespace NotaFiscal.Data
             modelBuilder.Entity<Venda>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).IsRequired().ValueGeneratedOnAdd();
+                entity.Property(e => e.Id).IsRequired().ValueGeneratedNever();
                 entity.Property(e => e.IdEndereco).IsRequired();
                 entity.Property(e => e.IdCliente).IsRequired();
                 entity.Property(e => e.FormaPagamento).IsRequired().HasConversion<int>();
-                entity.Property(e => e.Data).IsRequired().HasColumnType("datetime2");
+                entity.Property(e => e.Data).IsRequired().HasColumnType("date");
                 entity.Property(e => e.ValorTotal).IsRequired().HasColumnType("decimal(18,2)").HasPrecision(18, 2);
 
                 // FK Endereco
