@@ -17,49 +17,60 @@ namespace NotaFiscal.Controllers
             _context = context;
         }
 
-        public async Task ImportarPlanilha(string caminhoDoArquivo)
+        public async Task ImportarPlanilha(string caminhoDoArquivo, IProgress<string>? progress = null)
         {
-            ExcelPackage.License.SetNonCommercialPersonal("Caio Chiabai");
+            ExcelPackage.License.SetNonCommercialPersonal("Teste");
             var fileInfo = new FileInfo(caminhoDoArquivo);
 
-            using (var package = new ExcelPackage(fileInfo))
+            int linhasProcessadas = 0;
+            int linhasPuladas = 0;
+            int linhasInseridas = 0;
+
+            try
             {
-                var worksheet = package.Workbook.Worksheets[0];
-                var rowCount = worksheet.Dimension.Rows;
+                progress?.Report("Iniciando importação da planilha...");
 
-                for (int row = 2; row <= rowCount; row++) // Começa da linha 2 para ignorar o cabeçalho
+                using (var package = new ExcelPackage(fileInfo))
                 {
-                    
-                    var clienteId = int.Parse(worksheet.Cells[row, 1].Value.ToString());
+                    var worksheet = package.Workbook.Worksheets[0];
+                    var rowCount = worksheet.Dimension.Rows;
 
-                    // 1. Procura se o cliente já existe (primeiro no rastreamento local, depois no banco)
-                    var cliente = _context.Clientes.Local.FirstOrDefault(c => c.Id == clienteId)
-                                    ?? await _context.Clientes
-                                            .Include(c => c.Enderecos)
-                                            .FirstOrDefaultAsync(c => c.Id == clienteId);
+                    progress?.Report($"Total de linhas encontradas: {rowCount - 1} (ignorando cabeçalho)");
 
-                    // 2. Se não existir, cria um novo cliente
-                    if (cliente == null)
+                    for (int row = 2; row <= rowCount; row++) // Começa da linha 2 para ignorar o cabeçalho
                     {
-                        cliente = new Cliente
+                        linhasProcessadas++;
+                        
+                        var clienteId = int.Parse(worksheet.Cells[row, 1].Value?.ToString() ?? "0");
+
+                        // 1. Procura se o cliente já existe (primeiro no rastreamento local, depois no banco)
+                        var cliente = _context.Clientes.Local.FirstOrDefault(c => c.Id == clienteId)
+                                        ?? await _context.Clientes
+                                                .Include(c => c.Enderecos)
+                                                .FirstOrDefaultAsync(c => c.Id == clienteId);
+
+                        // 2. Se não existir, cria um novo cliente
+                        if (cliente == null)
                         {
-                            Id = clienteId,
-                            CpfCnpj =  LimparNumeros(worksheet.Cells[row, 2].Value?.ToString()),
-                            NomeRazaoSocial = worksheet.Cells[row, 3].Value?.ToString()?.Trim(),
-                            NomeFantasia = worksheet.Cells[row, 4].Value?.ToString()?.Trim(),
-                            Email = worksheet.Cells[row, 5].Value?.ToString()?.Trim(),
-                            Telefone = LimparNumeros(worksheet.Cells[row, 6].Value?.ToString())
-                        };
-                        _context.Clientes.Add(cliente);
-                    }
+                            cliente = new Cliente
+                            {
+                                Id = clienteId,
+                                CpfCnpj = LimparNumeros(worksheet.Cells[row, 2].Value?.ToString() ?? ""),
+                                NomeRazaoSocial = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "",
+                                NomeFantasia = worksheet.Cells[row, 4].Value?.ToString()?.Trim(),
+                                Email = worksheet.Cells[row, 5].Value?.ToString()?.Trim() ?? "",
+                                Telefone = LimparNumeros(worksheet.Cells[row, 6].Value?.ToString() ?? "")
+                            };
+                            _context.Clientes.Add(cliente);
+                        }
 
-                    // 3. Verifica o endereço
-                    var logradouro = worksheet.Cells[row, 7].Value?.ToString()?.Trim();
-                    Endereco enderecoParaVenda = null;
+                        // 3. Verifica o endereço
+                        var logradouro = worksheet.Cells[row, 7].Value?.ToString()?.Trim();
+                        Endereco enderecoParaVenda = null;
 
-                    if (!string.IsNullOrWhiteSpace(logradouro))
-                    {
-                        var enderecoExistente = cliente.Enderecos.FirstOrDefault(e => e.Logradouro.Equals(logradouro, StringComparison.OrdinalIgnoreCase));
+                        if (!string.IsNullOrWhiteSpace(logradouro))
+                        {
+                            var enderecoExistente = cliente.Enderecos.FirstOrDefault(e => e.Logradouro.Equals(logradouro, StringComparison.OrdinalIgnoreCase));
 
                         if (enderecoExistente == null)
                         {
@@ -78,31 +89,53 @@ namespace NotaFiscal.Controllers
                         }
                     }
 
-                    // 4. Cadastra a venda
-                    var vendaId = int.Parse(worksheet.Cells[row, 9].Value.ToString());
-                    var venda = _context.Vendas.Local.FirstOrDefault(v => v.Id == vendaId)
-                                    ?? await _context.Vendas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vendaId);
+                        // 4. Cadastra a venda
+                        var vendaId = int.Parse(worksheet.Cells[row, 9].Value?.ToString() ?? "0");
+                        var venda = _context.Vendas.Local.FirstOrDefault(v => v.Id == vendaId)
+                                        ?? await _context.Vendas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vendaId);
 
-                    if (venda != null)
-                    {
-                        new Exception($"Venda com ID {vendaId} já existe. Verifique a planilha.");
-                        break;
+                        if (venda != null)
+                        {
+                            progress?.Report($"Linha {row}: Venda ID {vendaId} já existe - pulando");
+                            linhasPuladas++;
+                            continue;
+                        }
+
+                        venda = new Venda
+                        {
+                            Id = vendaId,
+                            Data = worksheet.Cells[row, 10].GetValue<DateTime>().Date,
+                            ValorTotal = decimal.Parse(worksheet.Cells[row, 11].Value?.ToString() ?? "0"),
+                            FormaPagamento = ParseFormaPagamento(worksheet.Cells[row, 12].Value?.ToString() ?? ""),
+                            Cliente = cliente,
+                            Endereco = enderecoParaVenda
+                        };
+
+                        _context.Vendas.Add(venda);
+                        linhasInseridas++;
+
+                        // Log de progresso a cada 10 linhas
+                        if (linhasProcessadas % 10 == 0)
+                        {
+                            progress?.Report($"Processadas {linhasProcessadas} de {rowCount - 1} linhas...");
+                        }
                     }
 
-                    venda = new Venda
-                    {
-                        Id = vendaId,
-                        Data = worksheet.Cells[row, 10].GetValue<DateTime>().Date,
-                        ValorTotal = decimal.Parse(worksheet.Cells[row, 11].Value.ToString()),
-                        FormaPagamento = ParseFormaPagamento(worksheet.Cells[row, 12].Value.ToString()),
-                        Cliente = cliente,
-                        Endereco = enderecoParaVenda
-                    };
-                    _context.Vendas.Add(venda);
-                }
+                    // Salva todas as alterações de uma vez
+                    progress?.Report("Salvando dados no banco...");
+                    await _context.SaveChangesAsync();
 
-                // Salva todas as alterações de uma vez
-                await _context.SaveChangesAsync();
+                    // Log final com resumo
+                    progress?.Report($"Resumo da importação:");
+                    progress?.Report($"- Total de linhas processadas: {linhasProcessadas}");
+                    progress?.Report($"- Linhas inseridas com sucesso: {linhasInseridas}");
+                    progress?.Report($"- Linhas puladas (duplicadas): {linhasPuladas}");
+                }
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"ERRO durante a importação: {ex.Message}");
+                throw;
             }
         }
 
