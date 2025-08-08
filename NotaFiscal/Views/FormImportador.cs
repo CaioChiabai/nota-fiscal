@@ -1,6 +1,5 @@
 ﻿using NotaFiscal.Controllers;
 using NotaFiscal.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace NotaFiscal.Views
 {
