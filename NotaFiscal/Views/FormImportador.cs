@@ -25,7 +25,7 @@ namespace NotaFiscal.Views
         {
             if (string.IsNullOrWhiteSpace(txtBoxCaminhoPlanilha.Text))
             {
-                MessageBox.Show("Por favor, selecione uma planilha para importar.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppendLog("Atenção: selecione uma planilha para importar.");
                 return;
             }
 
@@ -34,20 +34,35 @@ namespace NotaFiscal.Views
                 btnImportarPlanilha.Enabled = false;
                 btnImportarPlanilha.Text = "Importando...";
 
-                await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text);
+                // Limpa o log para uma nova execução
+                txtBoxLogs.Clear();
 
-                MessageBox.Show("Planilha importada com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                AppendLog($"Arquivo selecionado: {Path.GetFileName(txtBoxCaminhoPlanilha.Text)}");
+
+                // Encaminha logs do controller para o TextBox (sincronizado no thread de UI)
+                var progress = new Progress<string>(msg => AppendLog(msg));
+
+                await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text, progress);
+
+                AppendLog("Importação finalizada com sucesso.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ocorreu um erro ao importar a planilha: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                AppendLog($"ERRO: {ex.Message}");
+                if (ex.InnerException != null)
+                    AppendLog($"Detalhe: {ex.InnerException.Message}");
             }
             finally
             {
                 btnImportarPlanilha.Enabled = true;
                 btnImportarPlanilha.Text = "Importar";
-                txtBoxCaminhoPlanilha.Text = string.Empty;
             }
+        }
+
+        private void AppendLog(string message)
+        {
+            var line = $"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}";
+            txtBoxLogs.AppendText(line);
         }
     }
 }
