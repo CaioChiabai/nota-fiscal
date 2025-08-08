@@ -5,6 +5,7 @@
         Dinheiro = 1,
         Cartao = 2,
         Pix = 3,
-        Boleto = 4
+        Transferencia = 4,
+        Boleto = 5
     }
 }
