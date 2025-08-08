@@ -24,21 +24,6 @@ namespace NotaFiscal
 
             ApplicationConfiguration.Initialize();
             
-            // Criar o banco de dados se não existir
-            try
-            {
-                using (var scope = ServiceProvider.CreateScope())
-                {
-                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    context.Database.EnsureCreated();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Erro ao conectar com o banco de dados: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            
             Application.Run(ServiceProvider.GetRequiredService<FormImportador>());
         }
 
@@ -58,7 +43,11 @@ namespace NotaFiscal
             services.AddTransient<PlanilhaController>();
 
             // Forms
-            services.AddTransient<FormImportador>();
+            services.AddTransient<FormImportador>(provider => 
+                new FormImportador(
+                    provider.GetRequiredService<PlanilhaController>(),
+                    provider.GetRequiredService<AppDbContext>()
+                ));
         }
     }
 }
