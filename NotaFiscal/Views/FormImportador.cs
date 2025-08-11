@@ -8,12 +8,15 @@ namespace NotaFiscal.Views
         private readonly PlanilhaController _planilhaController;
         private readonly AppDbContext _context;
 
+        private System.Windows.Forms.Timer? _statusTimer;
+        private bool _checandoStatus = false;
+
         public FormImportador(PlanilhaController planilhaController, AppDbContext context)
         {
             InitializeComponent();
             _planilhaController = planilhaController;
             _context = context;
-            
+
             // Associa o evento Load para verificar conexão ao inicializar
             this.Load += FormImportador_Load;
         }
@@ -22,6 +25,60 @@ namespace NotaFiscal.Views
         {
             AppendLog("Iniciando aplicação...");
             await VerificarConexaoBanco();
+            IniciarMonitoramentoStatus();
+        }
+        private void IniciarMonitoramentoStatus()
+        {
+            _statusTimer = new System.Windows.Forms.Timer();
+            _statusTimer.Interval = 1000; // 1s
+            _statusTimer.Tick += async (_, __) => await ChecarStatusRapido();
+            _statusTimer.Start();
+        }
+
+        private async Task ChecarStatusRapido()
+        {
+            if (_checandoStatus) return;
+            _checandoStatus = true;
+            try
+            {
+                bool ok = await _context.Database.CanConnectAsync();
+                AtualizarIndicador(ok, silencioso: true);
+            }
+            catch
+            {
+                AtualizarIndicador(false, silencioso: true);
+            }
+            finally
+            {
+                _checandoStatus = false;
+            }
+        }
+
+        private DateTime? _ultimoDesconectado;
+        private void AtualizarIndicador(bool online, bool silencioso = false)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(() => AtualizarIndicador(online, silencioso));
+                return;
+            }
+
+            if (online)
+            {
+                lblDbStatus.Text = "● Conectado";
+                lblDbStatus.ForeColor = Color.ForestGreen;
+                _ultimoDesconectado = null;
+            }
+            else
+            {
+                if (_ultimoDesconectado == null)
+                    _ultimoDesconectado = DateTime.Now;
+                lblDbStatus.Text = $"● Desconectado desde {_ultimoDesconectado:HH:mm:ss}";
+                lblDbStatus.ForeColor = Color.Firebrick;
+            }
+
+            if (!silencioso)
+                AppendLog(online ? "Status banco: ONLINE" : "Status banco: OFFLINE");
         }
 
         private async Task VerificarConexaoBanco()
@@ -29,17 +86,13 @@ namespace NotaFiscal.Views
             try
             {
                 AppendLog("Verificando conexão com o banco de dados...");
-                
-                // Tenta abrir uma conexão e fazer uma consulta simples
                 var canConnect = await _context.Database.CanConnectAsync();
-                
+                AtualizarIndicador(canConnect);
                 if (canConnect)
                 {
-                    // Verifica se o banco existe e se há tabelas
                     await _context.Database.EnsureCreatedAsync();
-                    
                     AppendLog("✓ Conexão com banco de dados estabelecida com sucesso!");
-                    AppendLog($"✓ Banco de dados configurado e funcionando");
+                    AppendLog("✓ Banco de dados configurado e funcionando");
                 }
                 else
                 {
@@ -49,14 +102,11 @@ namespace NotaFiscal.Views
             }
             catch (Exception ex)
             {
+                AtualizarIndicador(false);
                 AppendLog("✗ Erro ao verificar conexão com banco de dados:");
                 AppendLog($"  {ex.Message}");
-                
                 if (ex.InnerException != null)
-                {
                     AppendLog($"  Detalhe: {ex.InnerException.Message}");
-                }
-                
                 AppendLog("⚠ Verifique se:");
                 AppendLog("  - O SQL Server está executando");
                 AppendLog("  - A string de conexão está correta");

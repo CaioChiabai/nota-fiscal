@@ -33,6 +33,7 @@
             lblTituloImportacao = new Label();
             txtBoxCaminhoPlanilha = new TextBox();
             txtBoxLogs = new TextBox();
+            lblDbStatus = new Label();
             SuspendLayout();
             // 
             // btnSelecionarPlanilha
@@ -76,7 +77,7 @@
             // 
             // txtBoxLogs
             // 
-            txtBoxLogs.Location = new Point(12, 249);
+            txtBoxLogs.Location = new Point(12, 203);
             txtBoxLogs.Multiline = true;
             txtBoxLogs.Name = "txtBoxLogs";
             txtBoxLogs.ReadOnly = true;
@@ -85,12 +86,21 @@
             txtBoxLogs.TabIndex = 4;
             txtBoxLogs.WordWrap = false;
             // 
+            // lblDbStatus
+            // 
+            lblDbStatus.AutoSize = true;
+            lblDbStatus.Location = new Point(12, 412);
+            lblDbStatus.Name = "lblDbStatus";
+            lblDbStatus.Size = new Size(0, 15);
+            lblDbStatus.TabIndex = 5;
+            // 
             // FormImportador
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = SystemColors.ControlLight;
             ClientSize = new Size(800, 450);
+            Controls.Add(lblDbStatus);
             Controls.Add(txtBoxLogs);
             Controls.Add(txtBoxCaminhoPlanilha);
             Controls.Add(lblTituloImportacao);
@@ -109,5 +119,6 @@
         private Label lblTituloImportacao;
         private TextBox txtBoxCaminhoPlanilha;
         private TextBox txtBoxLogs;
+        private Label lblDbStatus;
     }
 }
