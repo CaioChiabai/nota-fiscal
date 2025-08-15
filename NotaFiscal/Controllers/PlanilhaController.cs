@@ -2,6 +2,7 @@
 using NotaFiscal.Data;
 using NotaFiscal.Models;
 using NotaFiscal.Models.Enums;
+using NotaFiscal.Services;
 using OfficeOpenXml;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -11,10 +12,12 @@ namespace NotaFiscal.Controllers
     public class PlanilhaController
     {
         private readonly AppDbContext _context;
+        private readonly LogService _logService;
 
         public PlanilhaController(AppDbContext context)
         {
             _context = context;
+            _logService = new LogService();
         }
 
         public async Task ImportarPlanilha(string caminhoDoArquivo, IProgress<string>? progress = null)
@@ -22,12 +25,22 @@ namespace NotaFiscal.Controllers
             ExcelPackage.License.SetNonCommercialPersonal("Teste");
             var fileInfo = new FileInfo(caminhoDoArquivo);
 
+            // Inicializa o log
+            var logPath = _logService.InicializarLog(Path.GetFileName(caminhoDoArquivo));
+
+            // Informa onde o log foi criado
+            if (!string.IsNullOrEmpty(logPath))
+            {
+                progress?.Report($"Log de importação será salvo em: {logPath}");
+            }
+
             int linhasProcessadas = 0;
             int linhasPuladas = 0;
             int linhasInseridas = 0;
             int linhasComErro = 0;
 
             progress?.Report("Iniciando importação da planilha...");
+            _logService.RegistrarLog("Iniciando importação da planilha");
 
             using (var package = new ExcelPackage(fileInfo))
             {
@@ -35,6 +48,7 @@ namespace NotaFiscal.Controllers
                 var rowCount = worksheet.Dimension.Rows;
 
                 progress?.Report($"Total de linhas encontradas: {rowCount - 1} (ignorando cabeçalho)");
+                _logService.RegistrarLog($"Total de linhas encontradas: {rowCount - 1} (ignorando cabeçalho)");
 
                 for (int row = 2; row <= rowCount; row++) // Começa da linha 2 para ignorar o cabeçalho
                 {
@@ -69,7 +83,7 @@ namespace NotaFiscal.Controllers
 
                             // 3. Verifica o endereço
                             var logradouro = worksheet.Cells[row, 7].Value?.ToString()?.Trim();
-                            Endereco enderecoParaVenda = null;
+                            Endereco enderecoParaVenda;
 
                             if (!string.IsNullOrWhiteSpace(logradouro))
                             {
@@ -91,6 +105,27 @@ namespace NotaFiscal.Controllers
                                     enderecoParaVenda = enderecoExistente;
                                 }
                             }
+                            else
+                            {
+                                // Se não há logradouro, usa o primeiro endereço existente do cliente
+                                var enderecoExistente = cliente.Enderecos.FirstOrDefault();
+                                if (enderecoExistente != null)
+                                {
+                                    enderecoParaVenda = enderecoExistente;
+                                }
+                                else
+                                {
+                                    // Cria endereço padrão quando não há endereço informado
+                                    var enderecoDefault = new Endereco
+                                    {
+                                        TipoEndereco = TipoEndereco.Entrega,
+                                        Logradouro = "Endereço não informado",
+                                        Cliente = cliente
+                                    };
+                                    cliente.Enderecos.Add(enderecoDefault);
+                                    enderecoParaVenda = enderecoDefault;
+                                }
+                            }
                             
                             // 4. Verifica se a venda já existe
                             var vendaId = int.Parse(worksheet.Cells[row, 9].Value?.ToString() ?? "0");
@@ -98,7 +133,9 @@ namespace NotaFiscal.Controllers
 
                             if (vendaExistente != null)
                             {
-                                progress?.Report($"Linha {row}: Venda ID {vendaId} já existe - pulando");
+                                var mensagem = $"Linha {row}: Venda ID {vendaId} já existe - pulando";
+                                progress?.Report(mensagem);
+                                _logService.RegistrarLog(mensagem);
                                 linhasPuladas++;
                                 
                                 // Faz rollback da transação para não salvar cliente/endereço desnecessários
@@ -130,7 +167,9 @@ namespace NotaFiscal.Controllers
                             // Log de progresso a cada 10 linhas
                             if (linhasProcessadas % 10 == 0)
                             {
-                                progress?.Report($"Processadas {linhasProcessadas} de {rowCount - 1} linhas...");
+                                var progressMessage = $"Processadas {linhasProcessadas} de {rowCount - 1} linhas...";
+                                progress?.Report(progressMessage);
+                                _logService.RegistrarLog(progressMessage);
                             }
                         }
                         catch (Exception ex)
@@ -139,7 +178,22 @@ namespace NotaFiscal.Controllers
                             await transaction.RollbackAsync();
                             linhasComErro++;
                             
-                            progress?.Report($"ERRO na linha {row}: {ex.Message} - Rollback executado");
+                            // Captura dados da linha para o log
+                            var dadosLinha = string.Empty;
+                            try 
+                            {
+                                var dados = new List<string>();
+                                for (int col = 1; col <= 12; col++)
+                                {
+                                    dados.Add(worksheet.Cells[row, col].Value?.ToString() ?? "");
+                                }
+                                dadosLinha = string.Join(" | ", dados);
+                            }
+                            catch { /* Ignora erros ao capturar dados da linha */ }
+                            
+                            var errorMessage = $"ERRO na linha {row}: {ex.Message} - Rollback executado";
+                            progress?.Report(errorMessage);
+                            _logService.RegistrarErroLog(row, ex.Message, dadosLinha);
                             
                             // IMPORTANTE: Limpa o contexto para evitar problemas nas próximas linhas
                             _context.ChangeTracker.Clear();
@@ -151,12 +205,29 @@ namespace NotaFiscal.Controllers
                 }
 
                 // Log final com resumo
-                progress?.Report($"Resumo da importação:");
-                progress?.Report($"- Total de linhas processadas: {linhasProcessadas}");
-                progress?.Report($"- Linhas inseridas com sucesso: {linhasInseridas}");
-                progress?.Report($"- Linhas puladas (duplicadas): {linhasPuladas}");
-                progress?.Report($"- Linhas com erro: {linhasComErro}");
+                var resumo = new[]
+                {
+                    "Resumo da importação:",
+                    $"- Total de linhas processadas: {linhasProcessadas}",
+                    $"- Linhas inseridas com sucesso: {linhasInseridas}",
+                    $"- Linhas puladas (duplicadas): {linhasPuladas}",
+                    $"- Linhas com erro: {linhasComErro}"
+                };
+
+                foreach (var linha in resumo)
+                {
+                    progress?.Report(linha);
+                    _logService.RegistrarLog(linha);
+                }
+
+                _logService.RegistrarLog("Importação finalizada");
             }
+        }
+
+        // Método de teste para verificar o sistema de logs
+        public string TestarSistemaLogs()
+        {
+            return _logService.TestarSistemaLogs();
         }
 
         /// <summary>
