@@ -13,11 +13,13 @@ namespace NotaFiscal.Controllers
     {
         private readonly AppDbContext _context;
         private readonly LogService _logService;
+        private readonly ValidacaoService _validacaoService;
 
         public PlanilhaController(AppDbContext context)
         {
             _context = context;
             _logService = new LogService();
+            _validacaoService = new ValidacaoService();
         }
 
         public async Task ImportarPlanilha(string caminhoDoArquivo, IProgress<string>? progress = null)
@@ -72,11 +74,11 @@ namespace NotaFiscal.Controllers
                                 cliente = new Cliente
                                 {
                                     Id = clienteId,
-                                    CpfCnpj = LimparCpfCnpj(worksheet.Cells[row, 2].Value?.ToString() ?? ""),
+                                    CpfCnpj = _validacaoService.LimparCpfCnpj(worksheet.Cells[row, 2].Value?.ToString() ?? ""),
                                     NomeRazaoSocial = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "",
                                     NomeFantasia = worksheet.Cells[row, 4].Value?.ToString()?.Trim(),
                                     Email = worksheet.Cells[row, 5].Value?.ToString()?.Trim() ?? "",
-                                    Telefone = LimparTelefone(worksheet.Cells[row, 6].Value?.ToString() ?? "")
+                                    Telefone = _validacaoService.LimparTelefone(worksheet.Cells[row, 6].Value?.ToString() ?? "")
                                 };
                                 _context.Clientes.Add(cliente);
                             }
@@ -93,7 +95,7 @@ namespace NotaFiscal.Controllers
                                 {
                                     var novoEndereco = new Endereco
                                     {
-                                        TipoEndereco = ParseTipoEndereco(worksheet.Cells[row, 8].Value?.ToString() ?? ""),
+                                        TipoEndereco = _validacaoService.ParseTipoEndereco(worksheet.Cells[row, 8].Value?.ToString() ?? ""),
                                         Logradouro = logradouro,
                                         Cliente = cliente
                                     };
@@ -149,7 +151,7 @@ namespace NotaFiscal.Controllers
                                 Id = vendaId,
                                 Data = worksheet.Cells[row, 10].GetValue<DateTime>().Date,
                                 ValorTotal = decimal.Parse(worksheet.Cells[row, 11].Value?.ToString() ?? "0"),
-                                FormaPagamento = ParseFormaPagamento(worksheet.Cells[row, 12].Value?.ToString() ?? ""),
+                                FormaPagamento = _validacaoService.ParseFormaPagamento(worksheet.Cells[row, 12].Value?.ToString() ?? ""),
                                 Cliente = cliente,
                                 Endereco = enderecoParaVenda
                             };
@@ -224,106 +226,5 @@ namespace NotaFiscal.Controllers
             }
         }
 
-        /// <summary>
-        /// Remove todos os caracteres não numéricos de uma string e valida se o telefone está no formato correto.
-        /// </summary>
-        private string LimparTelefone(string valor)
-        {
-            if (string.IsNullOrWhiteSpace(valor))
-                return string.Empty;
-            
-            var numeroLimpo = Regex.Replace(valor, @"[^\d]", "");
-            
-            // Validação: telefone deve ter pelo menos 10 dígitos (permite código do país)
-            if (numeroLimpo.Length > 0 && numeroLimpo.Length < 10)
-            {
-                throw new ArgumentException($"Telefone inválido após limpeza: '{valor}' -> '{numeroLimpo}'. Deve ter pelo menos 10 dígitos.");
-            }
-            
-            return numeroLimpo;
-        }
-
-        /// <summary>
-        /// Remove todos os caracteres não numéricos de uma string e valida se o CPF/CNPJ está no formato correto.
-        /// </summary>
-        private string LimparCpfCnpj(string valor)
-        {
-            if (string.IsNullOrWhiteSpace(valor))
-                return string.Empty;
-            
-            var numeroLimpo = Regex.Replace(valor, @"[^\d]", "");
-            
-            // Validação: CPF deve ter 11 dígitos, CNPJ deve ter 14 dígitos
-            if (numeroLimpo.Length > 0 && numeroLimpo.Length != 11 && numeroLimpo.Length != 14)
-            {
-                throw new ArgumentException($"CPF/CNPJ inválido após limpeza: '{valor}' -> '{numeroLimpo}'. CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos.");
-            }
-            
-            return numeroLimpo;
-        }
-
-        /// <summary>
-        /// Converte a string da forma de pagamento para o enum correspondente.
-        /// </summary>
-        private FormaPagamento ParseFormaPagamento(string formaPagamentoStr)
-        {
-            if (string.IsNullOrWhiteSpace(formaPagamentoStr))
-                return default;
-
-            // Remove acentos e espaços para uma comparação mais robusta
-            var textoNormalizado = string.Concat(formaPagamentoStr.Normalize(System.Text.NormalizationForm.FormD)
-            .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)).Replace(" ", "").ToLower();
-
-            switch (textoNormalizado)
-            {
-                case "cartao":
-                    return FormaPagamento.Cartao;
-                case "transferencia":
-                    return FormaPagamento.Transferencia;
-                case "pix":
-                    return FormaPagamento.Pix;
-                case "boleto":
-                    return FormaPagamento.Boleto;
-                case "dinheiro":
-                    return FormaPagamento.Dinheiro;
-                default:
-                    // Tenta fazer o parse direto, caso o valor na planilha seja o nome exato do enum
-                    if (Enum.TryParse<FormaPagamento>(formaPagamentoStr, true, out var resultado))
-                    {
-                        return resultado;
-                    }
-                    throw new ArgumentException($"Forma de pagamento desconhecida: {formaPagamentoStr}");
-            }
-        }
-
-        /// <summary>
-        /// Converte a string do tipo de endereço para o enum correspondente.
-        /// </summary>
-        private TipoEndereco ParseTipoEndereco(string tipoEnderecoStr)
-        {
-            if (string.IsNullOrWhiteSpace(tipoEnderecoStr))
-                return default;
-
-            // Remove acentos e espaços para uma comparação mais robusta
-            var textoNormalizado = string.Concat(tipoEnderecoStr.Normalize(System.Text.NormalizationForm.FormD)
-            .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)).Replace(" ", "").ToLower();
-
-            switch (textoNormalizado)
-            {
-                case "cobranca":
-                    return TipoEndereco.Cobranca;
-                case "cobrança":
-                    return TipoEndereco.Cobranca;
-                case "entrega":
-                    return TipoEndereco.Entrega;
-                default:
-                    // Tenta fazer o parse direto, caso o valor na planilha seja o nome exato do enum
-                    if (Enum.TryParse<TipoEndereco>(tipoEnderecoStr, true, out var resultado))
-                    {
-                        return resultado;
-                    }
-                    throw new ArgumentException($"Tipo de endereço desconhecido: {tipoEnderecoStr}");
-            }
-        }
     }
 }
