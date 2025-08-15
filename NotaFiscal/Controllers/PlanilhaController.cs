@@ -224,12 +224,6 @@ namespace NotaFiscal.Controllers
             }
         }
 
-        // Método de teste para verificar o sistema de logs
-        public string TestarSistemaLogs()
-        {
-            return _logService.TestarSistemaLogs();
-        }
-
         /// <summary>
         /// Remove todos os caracteres não numéricos de uma string e valida se o telefone está no formato correto.
         /// </summary>
