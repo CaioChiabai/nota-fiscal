@@ -58,11 +58,11 @@ namespace NotaFiscal.Controllers
                                 cliente = new Cliente
                                 {
                                     Id = clienteId,
-                                    CpfCnpj = LimparNumeros(worksheet.Cells[row, 2].Value?.ToString() ?? ""),
+                                    CpfCnpj = LimparCpfCnpj(worksheet.Cells[row, 2].Value?.ToString() ?? ""),
                                     NomeRazaoSocial = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "",
                                     NomeFantasia = worksheet.Cells[row, 4].Value?.ToString()?.Trim(),
                                     Email = worksheet.Cells[row, 5].Value?.ToString()?.Trim() ?? "",
-                                    Telefone = LimparNumeros(worksheet.Cells[row, 6].Value?.ToString() ?? "")
+                                    Telefone = LimparTelefone(worksheet.Cells[row, 6].Value?.ToString() ?? "")
                                 };
                                 _context.Clientes.Add(cliente);
                             }
@@ -160,13 +160,41 @@ namespace NotaFiscal.Controllers
         }
 
         /// <summary>
-        /// Remove todos os caracteres não numéricos de uma string.
+        /// Remove todos os caracteres não numéricos de uma string e valida se o telefone está no formato correto.
         /// </summary>
-        private string LimparNumeros(string valor)
+        private string LimparTelefone(string valor)
         {
             if (string.IsNullOrWhiteSpace(valor))
                 return string.Empty;
-            return Regex.Replace(valor, @"[^\d]", "");
+            
+            var numeroLimpo = Regex.Replace(valor, @"[^\d]", "");
+            
+            // Validação: telefone deve ter pelo menos 10 dígitos (permite código do país)
+            if (numeroLimpo.Length > 0 && numeroLimpo.Length < 10)
+            {
+                throw new ArgumentException($"Telefone inválido após limpeza: '{valor}' -> '{numeroLimpo}'. Deve ter pelo menos 10 dígitos.");
+            }
+            
+            return numeroLimpo;
+        }
+
+        /// <summary>
+        /// Remove todos os caracteres não numéricos de uma string e valida se o CPF/CNPJ está no formato correto.
+        /// </summary>
+        private string LimparCpfCnpj(string valor)
+        {
+            if (string.IsNullOrWhiteSpace(valor))
+                return string.Empty;
+            
+            var numeroLimpo = Regex.Replace(valor, @"[^\d]", "");
+            
+            // Validação: CPF deve ter 11 dígitos, CNPJ deve ter 14 dígitos
+            if (numeroLimpo.Length > 0 && numeroLimpo.Length != 11 && numeroLimpo.Length != 14)
+            {
+                throw new ArgumentException($"CPF/CNPJ inválido após limpeza: '{valor}' -> '{numeroLimpo}'. CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos.");
+            }
+            
+            return numeroLimpo;
         }
 
         /// <summary>
