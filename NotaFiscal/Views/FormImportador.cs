@@ -23,7 +23,6 @@ namespace NotaFiscal.Views
 
         private async void FormImportador_Load(object? sender, EventArgs e)
         {
-            AppendLog("Iniciando aplicação...");
             await VerificarConexaoBanco();
             IniciarMonitoramentoStatus();
         }
@@ -76,41 +75,22 @@ namespace NotaFiscal.Views
                 lblDbStatus.Text = $"● Desconectado desde {_ultimoDesconectado:HH:mm:ss}";
                 lblDbStatus.ForeColor = Color.Firebrick;
             }
-
-            if (!silencioso)
-                AppendLog(online ? "Status banco: ONLINE" : "Status banco: OFFLINE");
         }
 
         private async Task VerificarConexaoBanco()
         {
             try
             {
-                AppendLog("Verificando conexão com o banco de dados...");
                 var canConnect = await _context.Database.CanConnectAsync();
                 AtualizarIndicador(canConnect);
                 if (canConnect)
                 {
                     await _context.Database.EnsureCreatedAsync();
-                    AppendLog("✓ Conexão com banco de dados estabelecida com sucesso!");
-                    AppendLog("✓ Banco de dados configurado e funcionando");
-                }
-                else
-                {
-                    AppendLog("✗ Falha ao conectar com o banco de dados");
-                    AppendLog("⚠ Verifique a string de conexão no arquivo appsettings.json");
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 AtualizarIndicador(false);
-                AppendLog("✗ Erro ao verificar conexão com banco de dados:");
-                AppendLog($"  {ex.Message}");
-                if (ex.InnerException != null)
-                    AppendLog($"  Detalhe: {ex.InnerException.Message}");
-                AppendLog("⚠ Verifique se:");
-                AppendLog("  - O SQL Server está executando");
-                AppendLog("  - A string de conexão está correta");
-                AppendLog("  - As permissões de acesso estão configuradas");
             }
         }
 
@@ -127,7 +107,7 @@ namespace NotaFiscal.Views
         {
             if (string.IsNullOrWhiteSpace(txtBoxCaminhoPlanilha.Text))
             {
-                AppendLog("Atenção: selecione uma planilha para importar.");
+                MessageBox.Show("Selecione uma planilha para importar.", "Atenção", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -136,32 +116,19 @@ namespace NotaFiscal.Views
                 btnImportarPlanilha.Enabled = false;
                 btnImportarPlanilha.Text = "Importando...";
 
-                AppendLog($"Arquivo selecionado: {Path.GetFileName(txtBoxCaminhoPlanilha.Text)}");
+                await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text);
 
-                // Encaminha logs do controller para o TextBox (sincronizado no thread de UI)
-                var progress = new Progress<string>(msg => AppendLog(msg));
-
-                await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text, progress);
-
-                AppendLog("Importação finalizada com sucesso.");
+                MessageBox.Show("Importação finalizada com sucesso.", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                AppendLog($"ERRO: {ex.Message}");
-                if (ex.InnerException != null)
-                    AppendLog($"Detalhe: {ex.InnerException.Message}");
+                MessageBox.Show($"Erro durante a importação: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
                 btnImportarPlanilha.Enabled = true;
                 btnImportarPlanilha.Text = "Importar";
             }
-        }
-
-        private void AppendLog(string message)
-        {
-            var line = $"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}";
-            txtBoxLogs.AppendText(line);
         }
     }
 }

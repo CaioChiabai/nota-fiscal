@@ -168,7 +168,7 @@ namespace NotaFiscal.Controllers
             return dados;
         }
 
-        public async Task ImportarPlanilha(string caminhoDoArquivo, IProgress<string>? progress = null)
+        public async Task ImportarPlanilha(string caminhoDoArquivo)
         {
             ExcelPackage.License.SetNonCommercialPersonal("Teste");
             var fileInfo = new FileInfo(caminhoDoArquivo);
@@ -179,7 +179,7 @@ namespace NotaFiscal.Controllers
             // Informa onde o log foi criado
             if (!string.IsNullOrEmpty(logPath))
             {
-                progress?.Report($"Log de importação será salvo em: {logPath}");
+                // Log salvo apenas em arquivo
             }
 
             int linhasProcessadas = 0;
@@ -187,7 +187,6 @@ namespace NotaFiscal.Controllers
             int linhasInseridas = 0;
             int linhasComErro = 0;
 
-            progress?.Report("Iniciando importação da planilha...");
             _logService.RegistrarLog("Iniciando importação da planilha");
 
             using (var package = new ExcelPackage(fileInfo))
@@ -195,7 +194,6 @@ namespace NotaFiscal.Controllers
                 var worksheet = package.Workbook.Worksheets[0];
                 var rowCount = worksheet.Dimension.Rows;
 
-                progress?.Report($"Total de linhas encontradas: {rowCount - 1} (ignorando cabeçalho)");
                 _logService.RegistrarLog($"Total de linhas encontradas: {rowCount - 1} (ignorando cabeçalho)");
 
                 for (int row = 2; row <= rowCount; row++) // Começa da linha 2 para ignorar o cabeçalho
@@ -287,7 +285,6 @@ namespace NotaFiscal.Controllers
                             if (vendaExistente != null)
                             {
                                 var mensagem = $"Linha {row}: Venda ID {dadosValidados.VendaId} já existe - pulando";
-                                progress?.Report(mensagem);
                                 _logService.RegistrarLog(mensagem);
                                 linhasPuladas++;
                                 
@@ -321,7 +318,6 @@ namespace NotaFiscal.Controllers
                             if (linhasProcessadas % 10 == 0)
                             {
                                 var progressMessage = $"Processadas {linhasProcessadas} de {rowCount - 1} linhas...";
-                                progress?.Report(progressMessage);
                                 _logService.RegistrarLog(progressMessage);
                             }
                         }
@@ -333,9 +329,6 @@ namespace NotaFiscal.Controllers
                             
                             // Como já validamos os campos, este erro deve ser de banco de dados ou lógica
                             _logService.RegistrarErroCampo(row, "Erro de banco/lógica", "", ex.Message);
-                            
-                            var errorMessage = $"ERRO na linha {row}: {ex.Message} - Rollback executado";
-                            progress?.Report(errorMessage);
                             
                             // IMPORTANTE: Limpa o contexto para evitar problemas nas próximas linhas
                             _context.ChangeTracker.Clear();
@@ -358,7 +351,6 @@ namespace NotaFiscal.Controllers
 
                 foreach (var linha in resumo)
                 {
-                    progress?.Report(linha);
                     _logService.RegistrarLog(linha);
                 }
 

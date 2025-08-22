@@ -32,7 +32,6 @@
             btnImportarPlanilha = new Button();
             lblTituloImportacao = new Label();
             txtBoxCaminhoPlanilha = new TextBox();
-            txtBoxLogs = new TextBox();
             lblDbStatus = new Label();
             SuspendLayout();
             // 
@@ -75,17 +74,6 @@
             txtBoxCaminhoPlanilha.Size = new Size(328, 23);
             txtBoxCaminhoPlanilha.TabIndex = 3;
             // 
-            // txtBoxLogs
-            // 
-            txtBoxLogs.Location = new Point(12, 203);
-            txtBoxLogs.Multiline = true;
-            txtBoxLogs.Name = "txtBoxLogs";
-            txtBoxLogs.ReadOnly = true;
-            txtBoxLogs.ScrollBars = ScrollBars.Vertical;
-            txtBoxLogs.Size = new Size(776, 189);
-            txtBoxLogs.TabIndex = 4;
-            txtBoxLogs.WordWrap = false;
-            // 
             // lblDbStatus
             // 
             lblDbStatus.AutoSize = true;
@@ -101,7 +89,6 @@
             BackColor = SystemColors.ControlLight;
             ClientSize = new Size(800, 450);
             Controls.Add(lblDbStatus);
-            Controls.Add(txtBoxLogs);
             Controls.Add(txtBoxCaminhoPlanilha);
             Controls.Add(lblTituloImportacao);
             Controls.Add(btnImportarPlanilha);
@@ -118,7 +105,6 @@
         private Button btnImportarPlanilha;
         private Label lblTituloImportacao;
         private TextBox txtBoxCaminhoPlanilha;
-        private TextBox txtBoxLogs;
         private Label lblDbStatus;
     }
 }
