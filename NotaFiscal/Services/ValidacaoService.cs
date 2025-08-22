@@ -10,15 +10,21 @@ namespace NotaFiscal.Services
     public class ValidacaoService
     {
         /// <summary>
-        /// Remove todos os caracteres não numéricos de uma string e valida se o telefone está no formato correto.
+        /// Valida e limpa telefone, verificando se contém apenas números e caracteres de formatação válidos.
         /// </summary>
         /// <param name="valor">Valor do telefone a ser limpo e validado</param>
         /// <returns>Telefone limpo contendo apenas números</returns>
-        /// <exception cref="ArgumentException">Lançada quando o telefone não atende aos critérios mínimos</exception>
+        /// <exception cref="ArgumentException">Lançada quando o telefone contém caracteres inválidos ou não atende aos critérios mínimos</exception>
         public string LimparTelefone(string valor)
         {
             if (string.IsNullOrWhiteSpace(valor))
                 return string.Empty;
+            
+            // Primeiro verifica se contém apenas números e caracteres de formatação válidos (+ - ( ) espaços)
+            if (!Regex.IsMatch(valor, @"^[\d\+\-\(\)\s]+$"))
+            {
+                throw new ArgumentException($"Telefone contém caracteres inválidos: '{valor}'. Apenas números e caracteres de formatação (+ - ( )) são permitidos.");
+            }
             
             var numeroLimpo = Regex.Replace(valor, @"[^\d]", "");
             
@@ -32,15 +38,21 @@ namespace NotaFiscal.Services
         }
 
         /// <summary>
-        /// Remove todos os caracteres não numéricos de uma string e valida se o CPF/CNPJ está no formato correto.
+        /// Valida e limpa CPF/CNPJ, verificando se contém apenas números e caracteres de formatação válidos.
         /// </summary>
         /// <param name="valor">Valor do CPF/CNPJ a ser limpo e validado</param>
         /// <returns>CPF/CNPJ limpo contendo apenas números</returns>
-        /// <exception cref="ArgumentException">Lançada quando o CPF/CNPJ não atende aos critérios de tamanho</exception>
+        /// <exception cref="ArgumentException">Lançada quando o CPF/CNPJ contém caracteres inválidos ou não atende aos critérios de tamanho</exception>
         public string LimparCpfCnpj(string valor)
         {
             if (string.IsNullOrWhiteSpace(valor))
                 return string.Empty;
+            
+            // Primeiro verifica se contém apenas números e caracteres de formatação válidos (. - / espaços)
+            if (!Regex.IsMatch(valor, @"^[\d\.\-\/\s]+$"))
+            {
+                throw new ArgumentException($"CPF/CNPJ contém caracteres inválidos: '{valor}'. Apenas números e caracteres de formatação (. - /) são permitidos.");
+            }
             
             var numeroLimpo = Regex.Replace(valor, @"[^\d]", "");
             

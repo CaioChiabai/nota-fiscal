@@ -17,26 +17,16 @@ namespace NotaFiscal.Services
                 var dataHora = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 _logFileName = $"Log_{nomeArquivo}_{dataHora}.txt";
                 
-                // Tenta diferentes localizações para a pasta de logs
-                string logsPath;
-                
-                // Primeiro tenta usar o diretório da aplicação
-                var appPath = AppContext.BaseDirectory;
-                logsPath = Path.Combine(appPath, "Logs");
-                
-                // Se não funcionar, tenta o diretório atual
-                if (!TryCreateDirectory(logsPath))
+                // Define o caminho fixo para a pasta Logs dentro do projeto
+                var projectPath = Path.GetDirectoryName(Path.GetDirectoryName(AppContext.BaseDirectory));
+                if (projectPath != null)
                 {
-                    appPath = Directory.GetCurrentDirectory();
-                    logsPath = Path.Combine(appPath, "Logs");
-                    
-                    // Se ainda não funcionar, usa o diretório temp do usuário
-                    if (!TryCreateDirectory(logsPath))
-                    {
-                        logsPath = Path.Combine(Path.GetTempPath(), "NotaFiscal_Logs");
-                        TryCreateDirectory(logsPath);
-                    }
+                    // Sobe mais um nível para sair da pasta bin/Debug/net8.0-windows
+                    projectPath = Path.GetDirectoryName(projectPath);
                 }
+                
+                string logsPath = Path.Combine(projectPath ?? Directory.GetCurrentDirectory(), "Logs");
+                TryCreateDirectory(logsPath);
                 
                 var caminhoLog = Path.Combine(logsPath, _logFileName);
                 
@@ -99,6 +89,24 @@ namespace NotaFiscal.Services
         }
 
         /// <summary>
+        /// Registra um erro específico com detalhes do campo que causou o problema
+        /// </summary>
+        /// <param name="numeroLinha">Número da linha da planilha</param>
+        /// <param name="nomeCampo">Nome do campo que causou o erro</param>
+        /// <param name="valorCampo">Valor do campo que causou o erro</param>
+        /// <param name="erroDetalhado">Mensagem de erro detalhada</param>
+        /// <param name="dadosCompletos">Dados completos da linha (opcional)</param>
+        public void RegistrarErroCampo(int numeroLinha, string nomeCampo, string valorCampo, string erroDetalhado, string dadosCompletos = "")
+        {
+            // Converte o valor para string se não for nulo
+            string valorString = valorCampo?.ToString() ?? "null";
+            
+            var mensagem = $"Linha {numeroLinha} - Campo: {nomeCampo} - Valor: '{valorString}' - Erro: {erroDetalhado}";
+            
+            RegistrarLog(mensagem);
+        }
+
+        /// <summary>
         /// Obtém o caminho completo do arquivo de log atual
         /// </summary>
         /// <returns>Caminho do arquivo de log ou string vazia se não encontrado</returns>
@@ -107,49 +115,17 @@ namespace NotaFiscal.Services
             if (string.IsNullOrEmpty(_logFileName))
                 return string.Empty;
 
-            // Tenta encontrar o arquivo de log nas possíveis localizações
-            var possiveisCaminhos = new[]
+            // Define o caminho fixo para a pasta Logs dentro do projeto
+            var projectPath = Path.GetDirectoryName(Path.GetDirectoryName(AppContext.BaseDirectory));
+            if (projectPath != null)
             {
-                Path.Combine(AppContext.BaseDirectory, "Logs", _logFileName),
-                Path.Combine(Directory.GetCurrentDirectory(), "Logs", _logFileName),
-                Path.Combine(Path.GetTempPath(), "NotaFiscal_Logs", _logFileName)
-            };
-
-            foreach (var caminho in possiveisCaminhos)
-            {
-                if (File.Exists(caminho))
-                {
-                    return caminho;
-                }
+                projectPath = Path.GetDirectoryName(projectPath);
             }
-
-            return string.Empty;
-        }
-
-        /// <summary>
-        /// Testa o sistema de logs criando um arquivo de teste
-        /// </summary>
-        /// <returns>Resultado do teste</returns>
-        public string TestarSistemaLogs()
-        {
-            try
-            {
-                var caminhoLog = InicializarLog("teste_planilha.xlsx");
-                RegistrarLog("Teste do sistema de logs - funcionando!");
-                
-                if (!string.IsNullOrEmpty(caminhoLog) && File.Exists(caminhoLog))
-                {
-                    return $"Log de teste criado com sucesso em: {caminhoLog}";
-                }
-                else
-                {
-                    return "Erro: Não foi possível criar o arquivo de log";
-                }
-            }
-            catch (Exception ex)
-            {
-                return $"Erro ao testar logs: {ex.Message}";
-            }
+            
+            var logsPath = Path.Combine(projectPath ?? Directory.GetCurrentDirectory(), "Logs");
+            var caminhoLog = Path.Combine(logsPath, _logFileName);
+            
+            return File.Exists(caminhoLog) ? caminhoLog : string.Empty;
         }
 
         /// <summary>
