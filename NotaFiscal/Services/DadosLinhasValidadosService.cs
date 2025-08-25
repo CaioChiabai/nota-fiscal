@@ -96,14 +96,22 @@ namespace NotaFiscal.Services
 
                 // Coluna 8: Tipo Endereço
                 var tipoEnderecoStr = worksheet.Cells[row, 8].Value?.ToString()?.Trim() ?? "";
-                try
+                if (string.IsNullOrWhiteSpace(tipoEnderecoStr))
                 {
-                    dados.TipoEndereco = validacaoService.ParseTipoEndereco(tipoEnderecoStr);
-                }
-                catch (ArgumentException ex)
-                {
-                    logService.RegistrarErroCampo(row, "Tipo Endereço", tipoEnderecoStr, ex.Message);
+                    logService.RegistrarErroCampo(row, "Tipo Endereço", tipoEnderecoStr, "Tipo Endereço é obrigatório");
                     dados.TemErros = true;
+                }
+                else
+                {
+                    try
+                    {
+                        dados.TipoEndereco = validacaoService.ParseTipoEndereco(tipoEnderecoStr);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        logService.RegistrarErroCampo(row, "Tipo Endereço", tipoEnderecoStr, ex.Message);
+                        dados.TemErros = true;
+                    }
                 }
 
                 // Coluna 9: ID Venda
