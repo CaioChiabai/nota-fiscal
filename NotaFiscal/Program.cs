@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using NotaFiscal.Controllers;
+using NotaFiscal.Services;
 
 namespace NotaFiscal
 {
@@ -41,6 +42,10 @@ namespace NotaFiscal
 
             // Controllers
             services.AddTransient<PlanilhaController>();
+
+            // Services
+            services.AddSingleton<LogService>();
+            services.AddSingleton<ValidacaoService>();
 
             // Forms
             services.AddTransient<FormImportador>(provider => 

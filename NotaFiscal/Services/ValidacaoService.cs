@@ -9,12 +9,7 @@ namespace NotaFiscal.Services
     /// </summary>
     public class ValidacaoService
     {
-        /// <summary>
-        /// Valida e limpa telefone, verificando se contém apenas números e caracteres de formatação válidos.
-        /// </summary>
-        /// <param name="valor">Valor do telefone a ser limpo e validado</param>
-        /// <returns>Telefone limpo contendo apenas números</returns>
-        /// <exception cref="ArgumentException">Lançada quando o telefone contém caracteres inválidos ou não atende aos critérios mínimos</exception>
+        
         public string LimparTelefone(string valor)
         {
             if (string.IsNullOrWhiteSpace(valor))
@@ -37,12 +32,6 @@ namespace NotaFiscal.Services
             return numeroLimpo;
         }
 
-        /// <summary>
-        /// Valida e limpa CPF/CNPJ, verificando se contém apenas números e caracteres de formatação válidos.
-        /// </summary>
-        /// <param name="valor">Valor do CPF/CNPJ a ser limpo e validado</param>
-        /// <returns>CPF/CNPJ limpo contendo apenas números</returns>
-        /// <exception cref="ArgumentException">Lançada quando o CPF/CNPJ contém caracteres inválidos ou não atende aos critérios de tamanho</exception>
         public string LimparCpfCnpj(string valor)
         {
             if (string.IsNullOrWhiteSpace(valor))
@@ -65,12 +54,6 @@ namespace NotaFiscal.Services
             return numeroLimpo;
         }
 
-        /// <summary>
-        /// Converte a string da forma de pagamento para o enum correspondente.
-        /// </summary>
-        /// <param name="formaPagamentoStr">String representando a forma de pagamento</param>
-        /// <returns>Enum FormaPagamento correspondente</returns>
-        /// <exception cref="ArgumentException">Lançada quando a forma de pagamento é desconhecida</exception>
         public FormaPagamento ParseFormaPagamento(string formaPagamentoStr)
         {
             if (string.IsNullOrWhiteSpace(formaPagamentoStr))
@@ -102,12 +85,6 @@ namespace NotaFiscal.Services
             }
         }
 
-        /// <summary>
-        /// Converte a string do tipo de endereço para o enum correspondente.
-        /// </summary>
-        /// <param name="tipoEnderecoStr">String representando o tipo de endereço</param>
-        /// <returns>Enum TipoEndereco correspondente</returns>
-        /// <exception cref="ArgumentException">Lançada quando o tipo de endereço é desconhecido</exception>
         public TipoEndereco ParseTipoEndereco(string tipoEnderecoStr)
         {
             if (string.IsNullOrWhiteSpace(tipoEnderecoStr))
@@ -121,8 +98,6 @@ namespace NotaFiscal.Services
             {
                 case "cobranca":
                     return TipoEndereco.Cobranca;
-                case "cobrança":
-                    return TipoEndereco.Cobranca;
                 case "entrega":
                     return TipoEndereco.Entrega;
                 default:
@@ -132,6 +107,102 @@ namespace NotaFiscal.Services
                         return resultado;
                     }
                     throw new ArgumentException($"Tipo de endereço desconhecido: {tipoEnderecoStr}");
+            }
+        }
+
+        public bool TryParseExcelDate(object? value, out DateTime date)
+        {
+            date = default;
+            if (value is null) return false;
+
+            try
+            {
+                switch (value)
+                {
+                    case DateTime dt:
+                        date = dt.Date; return true;
+                    case double d:
+                        date = DateTime.FromOADate(d).Date; return true;
+                    case float f:
+                        date = DateTime.FromOADate(f).Date; return true;
+                    case int i:
+                        date = DateTime.FromOADate(i).Date; return true;
+                    case long l:
+                        date = DateTime.FromOADate(l).Date; return true;
+                    case decimal m:
+                        date = DateTime.FromOADate((double)m).Date; return true;
+                    case string s:
+                        var text = s.Trim();
+                        if (string.IsNullOrEmpty(text)) return false;
+
+                        // 1) Tenta como número OADate (excel serial)
+                        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var dn))
+                        {
+                            date = DateTime.FromOADate(dn).Date; return true;
+                        }
+
+                        // 2) Tenta com culturas e formatos comuns
+                        var cultures = new[] { new CultureInfo("pt-BR"), CultureInfo.CurrentCulture, CultureInfo.InvariantCulture };
+                        var formats = new[]
+                        {
+                            "dd/MM/yyyy","d/M/yyyy","dd-MM-yyyy","d-M-yyyy",
+                            "yyyy-MM-dd","yyyy/MM/dd","M/d/yyyy","MM/dd/yyyy",
+                            "ddMMyyyy","yyyyMMdd"
+                        };
+
+                        foreach (var culture in cultures)
+                        {
+                            if (DateTime.TryParse(text, culture, DateTimeStyles.None, out var dtParsed))
+                            {
+                                date = dtParsed.Date; return true;
+                            }
+                            if (DateTime.TryParseExact(text, formats, culture, DateTimeStyles.None, out var dtExact))
+                            {
+                                date = dtExact.Date; return true;
+                            }
+                        }
+                        break;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+            return false;
+        }
+
+        public bool TryParseDecimal(object? value, out decimal result)
+        {
+            result = default;
+            if (value is null) return false;
+
+            switch (value)
+            {
+                case decimal dec:
+                    result = dec; return true;
+                case double d:
+                    result = Convert.ToDecimal(d, CultureInfo.InvariantCulture); return true;
+                case float f:
+                    result = Convert.ToDecimal(f, CultureInfo.InvariantCulture); return true;
+                case int i:
+                    result = i; return true;
+                case long l:
+                    result = l; return true;
+                case string s:
+                    var text = s.Trim();
+                    if (string.IsNullOrEmpty(text)) return false;
+                    // Tenta nas principais culturas
+                    var cultures = new[] { new CultureInfo("pt-BR"), CultureInfo.CurrentCulture, CultureInfo.InvariantCulture };
+                    foreach (var culture in cultures)
+                    {
+                        if (decimal.TryParse(text, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, culture, out var parsed))
+                        {
+                            result = parsed; return true;
+                        }
+                    }
+                    return false;
+                default:
+                    return false;
             }
         }
     }

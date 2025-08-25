@@ -4,8 +4,6 @@ using NotaFiscal.Models;
 using NotaFiscal.Models.Enums;
 using NotaFiscal.Services;
 using OfficeOpenXml;
-using System.Globalization;
-using System.Text.RegularExpressions;
 
 namespace NotaFiscal.Controllers
 {
@@ -14,159 +12,13 @@ namespace NotaFiscal.Controllers
         private readonly AppDbContext _context;
         private readonly LogService _logService;
         private readonly ValidacaoService _validacaoService;
-
-        public PlanilhaController(AppDbContext context)
+        
+        public PlanilhaController(AppDbContext context, LogService logService, ValidacaoService validacaoService)
         {
             _context = context;
-            _logService = new LogService();
-            _validacaoService = new ValidacaoService();
-        }
-
-        /// <summary>
-        /// Classe para armazenar dados validados de uma linha
-        /// </summary>
-        private class DadosLinhaValidados
-        {
-            public bool TemErros { get; set; }
-            public int ClienteId { get; set; }
-            public string CpfCnpj { get; set; } = "";
-            public string NomeRazaoSocial { get; set; } = "";
-            public string? NomeFantasia { get; set; }
-            public string Email { get; set; } = "";
-            public string Telefone { get; set; } = "";
-            public string? Logradouro { get; set; }
-            public TipoEndereco TipoEndereco { get; set; }
-            public int VendaId { get; set; }
-            public DateTime DataVenda { get; set; }
-            public decimal ValorTotal { get; set; }
-            public FormaPagamento FormaPagamento { get; set; }
-        }
-
-        /// <summary>
-        /// Valida e converte os dados de uma linha da planilha
-        /// </summary>
-        private DadosLinhaValidados ValidarCelulasLinha(ExcelWorksheet worksheet, int row)
-        {
-            var dados = new DadosLinhaValidados();
-
-            try
-            {
-                // Coluna 1: ID Cliente
-                var idClienteStr = worksheet.Cells[row, 1].Value?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(idClienteStr) || !int.TryParse(idClienteStr, out int clienteId))
-                {
-                    _logService.RegistrarErroCampo(row, "ID Cliente", idClienteStr, "ID Cliente deve ser um número válido");
-                    dados.TemErros = true;
-                    return dados;
-                }
-                dados.ClienteId = clienteId;
-
-                // Coluna 2: CPF/CNPJ
-                var cpfCnpjStr = worksheet.Cells[row, 2].Value?.ToString() ?? "";
-                dados.CpfCnpj = _validacaoService.LimparCpfCnpj(cpfCnpjStr);
-                if (string.IsNullOrEmpty(dados.CpfCnpj))
-                {
-                    _logService.RegistrarErroCampo(row, "CPF/CNPJ", cpfCnpjStr, "CPF/CNPJ é obrigatório");
-                    dados.TemErros = true;
-                }
-
-                // Coluna 3: Nome/Razão Social
-                dados.NomeRazaoSocial = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(dados.NomeRazaoSocial))
-                {
-                    _logService.RegistrarErroCampo(row, "Nome/Razão Social", dados.NomeRazaoSocial, "Nome/Razão Social é obrigatório");
-                    dados.TemErros = true;
-                }
-
-                // Coluna 4: Nome Fantasia (opcional)
-                dados.NomeFantasia = worksheet.Cells[row, 4].Value?.ToString()?.Trim();
-
-                // Coluna 5: Email
-                dados.Email = worksheet.Cells[row, 5].Value?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(dados.Email))
-                {
-                    _logService.RegistrarErroCampo(row, "Email", dados.Email, "Email é obrigatório");
-                    dados.TemErros = true;
-                }
-
-                // Coluna 6: Telefone
-                var telefoneStr = worksheet.Cells[row, 6].Value?.ToString() ?? "";
-                dados.Telefone = _validacaoService.LimparTelefone(telefoneStr);
-                if (string.IsNullOrEmpty(dados.Telefone))
-                {
-                    _logService.RegistrarErroCampo(row, "Telefone", telefoneStr, "Telefone é obrigatório");
-                    dados.TemErros = true;
-                }
-
-                // Coluna 7: Logradouro (opcional)
-                dados.Logradouro = worksheet.Cells[row, 7].Value?.ToString()?.Trim();
-
-                // Coluna 8: Tipo Endereço
-                var tipoEnderecoStr = worksheet.Cells[row, 8].Value?.ToString()?.Trim() ?? "";
-                try
-                {
-                    dados.TipoEndereco = _validacaoService.ParseTipoEndereco(tipoEnderecoStr);
-                }
-                catch
-                {
-                    _logService.RegistrarErroCampo(row, "Tipo Endereço", tipoEnderecoStr, "Tipo de endereço inválido (use: Entrega, Cobranca ou Ambos)");
-                    dados.TemErros = true;
-                }
-
-                // Coluna 9: ID Venda
-                var idVendaStr = worksheet.Cells[row, 9].Value?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(idVendaStr) || !int.TryParse(idVendaStr, out int vendaId))
-                {
-                    _logService.RegistrarErroCampo(row, "ID Venda", idVendaStr, "ID Venda deve ser um número válido");
-                    dados.TemErros = true;
-                    return dados;
-                }
-                dados.VendaId = vendaId;
-
-                // Coluna 10: Data Venda
-                try
-                {
-                    dados.DataVenda = worksheet.Cells[row, 10].GetValue<DateTime>().Date;
-                }
-                catch
-                {
-                    var dataStr = worksheet.Cells[row, 10].Value?.ToString() ?? "";
-                    _logService.RegistrarErroCampo(row, "Data Venda", dataStr, "Data da venda deve ser uma data válida");
-                    dados.TemErros = true;
-                }
-
-                // Coluna 11: Valor Total
-                var valorTotalStr = worksheet.Cells[row, 11].Value?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(valorTotalStr) || !decimal.TryParse(valorTotalStr, out decimal valorTotal))
-                {
-                    _logService.RegistrarErroCampo(row, "Valor Total", valorTotalStr, "Valor Total deve ser um número válido");
-                    dados.TemErros = true;
-                }
-                else
-                {
-                    dados.ValorTotal = valorTotal;
-                }
-
-                // Coluna 12: Forma Pagamento
-                var formaPagamentoStr = worksheet.Cells[row, 12].Value?.ToString()?.Trim() ?? "";
-                try
-                {
-                    dados.FormaPagamento = _validacaoService.ParseFormaPagamento(formaPagamentoStr);
-                }
-                catch
-                {
-                    _logService.RegistrarErroCampo(row, "Forma Pagamento", formaPagamentoStr, "Forma de pagamento inválida");
-                    dados.TemErros = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logService.RegistrarErroCampo(row, "Erro geral", "", $"Erro inesperado ao validar linha: {ex.Message}");
-                dados.TemErros = true;
-            }
-
-            return dados;
-        }
+            _logService = logService;
+            _validacaoService = validacaoService;
+        }     
 
         public async Task ImportarPlanilha(string caminhoDoArquivo)
         {
@@ -201,7 +53,7 @@ namespace NotaFiscal.Controllers
                     linhasProcessadas++;
                     
                     // Valida todos os campos da linha ANTES de tentar criar objetos
-                    var dadosValidados = ValidarCelulasLinha(worksheet, row);
+                    var dadosValidados = DadosLinhaValidadosService.ValidarCelulasLinha(worksheet, row, _logService, _validacaoService);
                     
                     if (dadosValidados.TemErros)
                     {
