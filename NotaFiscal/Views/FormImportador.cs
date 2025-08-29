@@ -111,6 +111,11 @@ namespace NotaFiscal.Views
                 btnImportarPlanilha.Text = "Importando...";
 
                 await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text);
+                MessageBox.Show("Importação realizada com sucesso!", "Importação", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erro ao importar planilha:\n{ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
