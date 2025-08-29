@@ -17,7 +17,7 @@ namespace NotaFiscal.Controllers
             _context = context;
         }
 
-        public async Task ImportarPlanilha(string caminhoDoArquivo, IProgress<string>? progress = null)
+    public async Task ImportarPlanilha(string caminhoDoArquivo)
         {
             ExcelPackage.License.SetNonCommercialPersonal("Teste");
             var fileInfo = new FileInfo(caminhoDoArquivo);
@@ -27,14 +27,12 @@ namespace NotaFiscal.Controllers
             int linhasInseridas = 0;
             int linhasComErro = 0;
 
-            progress?.Report("Iniciando importação da planilha...");
 
             using (var package = new ExcelPackage(fileInfo))
             {
                 var worksheet = package.Workbook.Worksheets[0];
                 var rowCount = worksheet.Dimension.Rows;
 
-                progress?.Report($"Total de linhas encontradas: {rowCount - 1} (ignorando cabeçalho)");
 
                 for (int row = 2; row <= rowCount; row++) // Começa da linha 2 para ignorar o cabeçalho
                 {
@@ -69,7 +67,7 @@ namespace NotaFiscal.Controllers
 
                             // 3. Verifica o endereço
                             var logradouro = worksheet.Cells[row, 7].Value?.ToString()?.Trim();
-                            Endereco enderecoParaVenda = null;
+                            Endereco? enderecoParaVenda = null;
 
                             if (!string.IsNullOrWhiteSpace(logradouro))
                             {
@@ -98,7 +96,6 @@ namespace NotaFiscal.Controllers
 
                             if (vendaExistente != null)
                             {
-                                progress?.Report($"Linha {row}: Venda ID {vendaId} já existe - pulando");
                                 linhasPuladas++;
                                 
                                 // Faz rollback da transação para não salvar cliente/endereço desnecessários
@@ -107,6 +104,9 @@ namespace NotaFiscal.Controllers
                             }
 
                             // 5. Cadastra a venda
+                            if (enderecoParaVenda == null)
+                                throw new InvalidOperationException("Endereço para venda não pode ser nulo.");
+
                             var venda = new Venda
                             {
                                 Id = vendaId,
@@ -127,19 +127,13 @@ namespace NotaFiscal.Controllers
                             
                             linhasInseridas++;
 
-                            // Log de progresso a cada 10 linhas
-                            if (linhasProcessadas % 10 == 0)
-                            {
-                                progress?.Report($"Processadas {linhasProcessadas} de {rowCount - 1} linhas...");
-                            }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             // Faz rollback da transação em caso de erro
                             await transaction.RollbackAsync();
                             linhasComErro++;
                             
-                            progress?.Report($"ERRO na linha {row}: {ex.Message} - Rollback executado");
                             
                             // IMPORTANTE: Limpa o contexto para evitar problemas nas próximas linhas
                             _context.ChangeTracker.Clear();
@@ -150,12 +144,6 @@ namespace NotaFiscal.Controllers
                     }
                 }
 
-                // Log final com resumo
-                progress?.Report($"Resumo da importação:");
-                progress?.Report($"- Total de linhas processadas: {linhasProcessadas}");
-                progress?.Report($"- Linhas inseridas com sucesso: {linhasInseridas}");
-                progress?.Report($"- Linhas puladas (duplicadas): {linhasPuladas}");
-                progress?.Report($"- Linhas com erro: {linhasComErro}");
             }
         }
 

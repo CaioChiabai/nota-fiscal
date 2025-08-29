@@ -8,25 +8,25 @@ namespace NotaFiscal.Views
         private readonly PlanilhaController _planilhaController;
         private readonly AppDbContext _context;
 
+
         private System.Windows.Forms.Timer? _statusTimer;
         private bool _checandoStatus = false;
+        private DateTime? _ultimoDesconectado;
 
         public FormImportador(PlanilhaController planilhaController, AppDbContext context)
         {
             InitializeComponent();
             _planilhaController = planilhaController;
             _context = context;
-
-            // Associa o evento Load para verificar conexão ao inicializar
             this.Load += FormImportador_Load;
         }
 
         private async void FormImportador_Load(object? sender, EventArgs e)
         {
-            AppendLog("Iniciando aplicação...");
             await VerificarConexaoBanco();
             IniciarMonitoramentoStatus();
         }
+
         private void IniciarMonitoramentoStatus()
         {
             _statusTimer = new System.Windows.Forms.Timer();
@@ -42,11 +42,11 @@ namespace NotaFiscal.Views
             try
             {
                 bool ok = await _context.Database.CanConnectAsync();
-                AtualizarIndicador(ok, silencioso: true);
+                AtualizarIndicador(ok);
             }
             catch
             {
-                AtualizarIndicador(false, silencioso: true);
+                AtualizarIndicador(false);
             }
             finally
             {
@@ -54,12 +54,11 @@ namespace NotaFiscal.Views
             }
         }
 
-        private DateTime? _ultimoDesconectado;
-        private void AtualizarIndicador(bool online, bool silencioso = false)
+        private void AtualizarIndicador(bool online)
         {
             if (InvokeRequired)
             {
-                BeginInvoke(() => AtualizarIndicador(online, silencioso));
+                BeginInvoke(() => AtualizarIndicador(online));
                 return;
             }
 
@@ -76,43 +75,21 @@ namespace NotaFiscal.Views
                 lblDbStatus.Text = $"● Desconectado desde {_ultimoDesconectado:HH:mm:ss}";
                 lblDbStatus.ForeColor = Color.Firebrick;
             }
-
-            if (!silencioso)
-                AppendLog(online ? "Status banco: ONLINE" : "Status banco: OFFLINE");
         }
 
         private async Task VerificarConexaoBanco()
         {
             try
             {
-                AppendLog("Verificando conexão com o banco de dados...");
                 var canConnect = await _context.Database.CanConnectAsync();
                 AtualizarIndicador(canConnect);
-                if (canConnect)
-                {
-                    await _context.Database.EnsureCreatedAsync();
-                    AppendLog("✓ Conexão com banco de dados estabelecida com sucesso!");
-                    AppendLog("✓ Banco de dados configurado e funcionando");
-                }
-                else
-                {
-                    AppendLog("✗ Falha ao conectar com o banco de dados");
-                    AppendLog("⚠ Verifique a string de conexão no arquivo appsettings.json");
-                }
             }
-            catch (Exception ex)
+            catch
             {
                 AtualizarIndicador(false);
-                AppendLog("✗ Erro ao verificar conexão com banco de dados:");
-                AppendLog($"  {ex.Message}");
-                if (ex.InnerException != null)
-                    AppendLog($"  Detalhe: {ex.InnerException.Message}");
-                AppendLog("⚠ Verifique se:");
-                AppendLog("  - O SQL Server está executando");
-                AppendLog("  - A string de conexão está correta");
-                AppendLog("  - As permissões de acesso estão configuradas");
             }
         }
+
 
 
         private void btnSelecionarPlanilha_Click(object sender, EventArgs e)
@@ -126,42 +103,20 @@ namespace NotaFiscal.Views
         private async void btnImportarPlanilha_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrWhiteSpace(txtBoxCaminhoPlanilha.Text))
-            {
-                AppendLog("Atenção: selecione uma planilha para importar.");
                 return;
-            }
 
             try
             {
                 btnImportarPlanilha.Enabled = false;
                 btnImportarPlanilha.Text = "Importando...";
 
-                AppendLog($"Arquivo selecionado: {Path.GetFileName(txtBoxCaminhoPlanilha.Text)}");
-
-                // Encaminha logs do controller para o TextBox (sincronizado no thread de UI)
-                var progress = new Progress<string>(msg => AppendLog(msg));
-
-                await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text, progress);
-
-                AppendLog("Importação finalizada com sucesso.");
-            }
-            catch (Exception ex)
-            {
-                AppendLog($"ERRO: {ex.Message}");
-                if (ex.InnerException != null)
-                    AppendLog($"Detalhe: {ex.InnerException.Message}");
+                await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text);
             }
             finally
             {
                 btnImportarPlanilha.Enabled = true;
                 btnImportarPlanilha.Text = "Importar";
             }
-        }
-
-        private void AppendLog(string message)
-        {
-            var line = $"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}";
-            txtBoxLogs.AppendText(line);
         }
     }
 }
