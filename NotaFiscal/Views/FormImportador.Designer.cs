@@ -77,7 +77,7 @@
             // lblDbStatus
             // 
             lblDbStatus.AutoSize = true;
-            lblDbStatus.Location = new Point(12, 412);
+            lblDbStatus.Location = new Point(22, 416);
             lblDbStatus.Name = "lblDbStatus";
             lblDbStatus.Size = new Size(0, 15);
             lblDbStatus.TabIndex = 5;
