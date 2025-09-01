@@ -9,88 +9,12 @@ namespace NotaFiscal.Views
         private readonly AppDbContext _context;
 
 
-        private System.Windows.Forms.Timer? _statusTimer;
-        private bool _checandoStatus = false;
-        private DateTime? _ultimoDesconectado;
-
         public FormImportador(PlanilhaController planilhaController, AppDbContext context)
         {
             InitializeComponent();
             _planilhaController = planilhaController;
             _context = context;
-            this.Load += FormImportador_Load;
         }
-
-        private async void FormImportador_Load(object? sender, EventArgs e)
-        {
-            await VerificarConexaoBanco();
-            IniciarMonitoramentoStatus();
-        }
-
-        private void IniciarMonitoramentoStatus()
-        {
-            _statusTimer = new System.Windows.Forms.Timer();
-            _statusTimer.Interval = 1000; // 1s
-            _statusTimer.Tick += async (_, __) => await ChecarStatusRapido();
-            _statusTimer.Start();
-        }
-
-        private async Task ChecarStatusRapido()
-        {
-            if (_checandoStatus) return;
-            _checandoStatus = true;
-            try
-            {
-                bool ok = await _context.Database.CanConnectAsync();
-                AtualizarIndicador(ok);
-            }
-            catch
-            {
-                AtualizarIndicador(false);
-            }
-            finally
-            {
-                _checandoStatus = false;
-            }
-        }
-
-        private void AtualizarIndicador(bool online)
-        {
-            if (InvokeRequired)
-            {
-                BeginInvoke(() => AtualizarIndicador(online));
-                return;
-            }
-
-            if (online)
-            {
-                lblDbStatus.Text = "● Conectado";
-                lblDbStatus.ForeColor = Color.ForestGreen;
-                _ultimoDesconectado = null;
-            }
-            else
-            {
-                if (_ultimoDesconectado == null)
-                    _ultimoDesconectado = DateTime.Now;
-                lblDbStatus.Text = $"● Desconectado desde {_ultimoDesconectado:HH:mm:ss}";
-                lblDbStatus.ForeColor = Color.Firebrick;
-            }
-        }
-
-        private async Task VerificarConexaoBanco()
-        {
-            try
-            {
-                var canConnect = await _context.Database.CanConnectAsync();
-                AtualizarIndicador(canConnect);
-            }
-            catch
-            {
-                AtualizarIndicador(false);
-            }
-        }
-
-
 
         private void btnSelecionarPlanilha_Click(object sender, EventArgs e)
         {
@@ -111,7 +35,7 @@ namespace NotaFiscal.Views
                 btnImportarPlanilha.Text = "Importando...";
 
                 await _planilhaController.ImportarPlanilha(txtBoxCaminhoPlanilha.Text);
-                MessageBox.Show("Importação realizada com sucesso!", "Importação", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Importação finalizada!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

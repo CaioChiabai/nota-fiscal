@@ -75,14 +75,24 @@ namespace NotaFiscal.Controllers
 
                                 if (enderecoExistente == null)
                                 {
-                                    var novoEndereco = new Endereco
+                                    try
                                     {
-                                        TipoEndereco = ParseTipoEndereco(worksheet.Cells[row, 8].Value?.ToString() ?? ""),
-                                        Logradouro = logradouro,
-                                        Cliente = cliente
-                                    };
-                                    cliente.Enderecos.Add(novoEndereco);
-                                    enderecoParaVenda = novoEndereco;
+                                        var tipoEndereco = ParseTipoEndereco(worksheet.Cells[row, 8].Value?.ToString() ?? "");
+                                        var novoEndereco = new Endereco
+                                        {
+                                            TipoEndereco = tipoEndereco,
+                                            Logradouro = logradouro,
+                                            Cliente = cliente
+                                        };
+                                        cliente.Enderecos.Add(novoEndereco);
+                                        enderecoParaVenda = novoEndereco;
+                                    }
+                                    catch (ArgumentException ex) when (ex.Message.Contains("Tipo de endereço"))
+                                    {
+                                        linhasComErro++;
+                                        await transaction.RollbackAsync();
+                                        continue;
+                                    }
                                 }
                                 else
                                 {
@@ -225,7 +235,7 @@ namespace NotaFiscal.Controllers
         private TipoEndereco ParseTipoEndereco(string tipoEnderecoStr)
         {
             if (string.IsNullOrWhiteSpace(tipoEnderecoStr))
-                return default;
+                throw new ArgumentException("Tipo de endereço não pode ser vazio.");
 
             // Remove acentos e espaços para uma comparação mais robusta
             var textoNormalizado = string.Concat(tipoEnderecoStr.Normalize(System.Text.NormalizationForm.FormD)
