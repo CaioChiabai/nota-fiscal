@@ -235,8 +235,6 @@ namespace NotaFiscal.Controllers
             {
                 case "cobranca":
                     return TipoEndereco.Cobranca;
-                case "cobrança":
-                    return TipoEndereco.Cobranca;
                 case "entrega":
                     return TipoEndereco.Entrega;
                 default:
